@@ -4,6 +4,7 @@
 
 #Module page
 #1 튜플 인덱싱, 카운트 연습
+
 def tuple_method_exer():
     a = (1, 2, 3, 4, 2, 3, 3,)
     *b, c = a
