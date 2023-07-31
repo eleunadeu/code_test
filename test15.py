@@ -109,7 +109,7 @@ def train_ml_7():
     import mglearn
     from sklearn.svm import SVC
     
-    X, y = mglearn.tools.make_handcrfted_dataset()
+    X, y = mglearn.tools.make_handcrafted_dataset()
     print(X)
     print(y)
     svm = SVC(kernel='rbf', C=10, gamma=0.1).fit(X, y)
