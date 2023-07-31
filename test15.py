@@ -1,6 +1,10 @@
 # 데이터 교육 복습 15
 
 #75.ml 연습 5
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
 def train_ml_6():
     X = np.array([[3,4],[1,4],[2,3],[6,-1],[7,-1],[5,-3]] )
     y = np.array([-1,-1, -1, 1, 1 , 1 ])
