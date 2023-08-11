@@ -1,6 +1,235 @@
 # 데이터 교육 복습 24
 
 #83. 딥러닝 연습 4
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from collections import OrderedDict
+
+class SGD:
+    def __init__(self, lr=0.01):
+        self.lr = lr
+    
+    def update(self, params, grads):
+        for key in params.keys():
+            params[key] -= self.lr * grads[key]
+
+
+class Momentum:
+    def __init__(self, lr=0.01, momentum=0.9):
+        self.lr = lr
+        self.momentum = momentum
+        self.v = None
+
+    def update(self, params, grads):
+        if self.v is None:
+            self.v = {}
+        for key, val in params.items():
+            self.v[key] = np.zeros_like(val)
+
+        for key in params.keys():
+            self.v[key] = self.momentum * self.v[key] - self.lr * grads[key]
+            params[key] += self.v[key]
+
+
+class AdaGrad:
+    def __init__(self, lr=0.01):
+        self.lr = lr
+        self.h = None
+    
+    def update(self, params, grads):
+        if self.h is None:
+            self.h = {}
+            for key, val in params.items():
+                self.h[key] = np.zeros_like(val)
+        
+        for key in params.keys():
+            self.h[key] += grads[key] * grads[key]
+            params[key] -= self.lr * grads[key] / (np.sqrt(self.h[key])+1e-7)
+
+
+class Adam:
+
+    def __init__(self, lr=0.01, beta1=0.9, beta2=0.999):
+        self.lr = lr
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.iter = 0
+        self.m = None
+        self.v = None
+
+    def update(self, params, grads):
+        if self.m is None:
+            self.m, self.v = {}, {}
+            for key, val in params.items():
+                self.m[key] = np.zeros_like(val)
+                self.v[key] = np.zeros_like(val)
+
+        self.iter += 1
+        lr_t = self.lr * np.sqrt(1.0 - self.beta2**self.iter) / (1.0 - self.beta1**self.iter)
+
+        for key in params.keys():
+            #self.m[key] = self.beta1*self.m[key] + (1-self.beta1)*grads[key]
+            #self.v[key] = self.beta2*self.v[key] + (1-self.beta2)*(grads[key]**2)
+            self.m[key] += (1 - self.beta1) * (grads[key] - self.m[key])
+            self.v[key] += (1 - self.beta2) * (grads[key]**2 - self.v[key])
+
+            params[key] -= lr_t * self.m[key] / (np.sqrt(self.v[key]) + 1e-7)
+
+            #unbias_m += (1 - self.beta1) * (grads[key] - self.m[key]) # correct bias
+            #unbisa_b += (1 - self.beta2) * (grads[key]*grads[key] - self.v[key]) # correct bias
+            #params[key] += self.lr * unbias_m / (np.sqrt(unbisa_b) + 1e-7)
+class MultiLayerNet:
+    """완전연결 다층 신경망
+    Parameters
+    ----------
+    input_size : 입력 크기（MNIST의 경우엔 784）
+    hidden_size_list : 각 은닉층의 뉴런 수를 담은 리스트（e.g. [100, 100, 100]）
+    output_size : 출력 크기（MNIST의 경우엔 10）
+    activation : 활성화 함수 - 'relu' 혹은 'sigmoid'
+    weight_init_std : 가중치의 표준편차 지정（e.g. 0.01）
+        'relu'나 'he'로 지정하면 'He 초깃값'으로 설정
+        'sigmoid'나 'xavier'로 지정하면 'Xavier 초깃값'으로 설정
+    weight_decay_lambda : 가중치 감소(L2 법칙)의 세기
+    """
+
+    def __init__(self, input_size, hidden_size_list, output_size, 
+                 activation='relu', weight_init_std='relu', weight_decay_lambda=0):
+        self.input_size = input_size
+        self.output_size = output_size
+        self.hidden_size_list = hidden_size_list
+        self.hidden_layer_num = len(hidden_size_list)
+        self.weight_decay_lambda = weight_decay_lambda
+        self.params = {}
+
+        #가중치 초기화
+        self.__init__weight(weight_init_std)
+
+        #계층 생성
+        activation_layer = {'sigmoid':Sigmoid, 'relu':Relu}
+        self.layers = OrderedDict()
+        for idx in range(1, self.hidden_layer_num+1):
+            self.layers['Affine' + str(idx)] = Affine(self.params['W' + str(idx)], 
+                                                    self.params['b' + str(idx)])
+            self.layers['Activation_function' + str(idx)] = activation_layer[activation]()
+
+        idx = self.hidden_layer_num + 1
+        self.layers['Affine' + str(idx)] = Affine(self.params['W' + str(idx)],
+                                                  self.params['b' + str[idx]])
+        
+        self.last_layer = SoftmaxWithLoss()
+
+    def __init_weight(self, weight_init_std):
+        """가중치 초기화
+        
+        Parameters
+        ----------
+        weight_init_std : 가중치의 표준편차 지정（e.g. 0.01）
+            'relu'나 'he'로 지정하면 'He 초깃값'으로 설정
+            'sigmoid'나 'xavier'로 지정하면 'Xavier 초깃값'으로 설정
+        """
+        all_size_list = [self.input_size] + self.hidden_size_list + [self.output_size] # [784, 100, 100, 100, 10]
+        for idx in range(1, len(all_size_list)):
+            scale = weight_init_std
+            if str(weight_init_std).lower() in ('relu', 'he'):
+                scale = np.sqrt(2.0 / all_size_list[idx - 1]) #ReLu를 사용할 때 권장 초기값
+            elif str(weight_init_std).lower() in ('sigmoid', 'xavier'):
+                scale = np.sqrt(1.0 / all_size_list[idx - 1]) #sigmoid를 사용할 때의 권장 초기값
+            self.params['W' + str(idx)] = scale * np.random.randn(all_size_list[idx - 1], all_size_list[idx])
+            self.params['b' + str(idx)] = np.zeros(all_size_list)
+
+    def predict(self, x):
+        for layer in self.layers.values():
+            x = layer.forward(x)
+        
+        return x
+
+    def loss(self, x, t):
+        """손실 함수를 구한다.
+        
+        Parameters
+        ----------
+        x : 입력 데이터
+        t : 정답 레이블 
+        
+        Returns
+        -------
+        손실 함수의 값
+        """
+        y = self.predict(x)
+
+        weight_decay = 0
+        for idx in range(1, self.hidden_layer_num + 2):
+            W = self.params['W' +str(idx)]
+            weight_decay += 0.5 * self.weight_decay_lambda * np.sum(W ** 2)
+
+        return self.last_layer.forward(y, t) + weight_decay
+    
+    def accuracy(self, x, t):
+        y = self.predict(x)
+        y = np.argmax(y, axis=1)
+        if t.ndim != 1 : t = np.argmax(t, axis=1) #t가 1차원이 아니므로, one-hot 인코딩으로 되어 있는 경우
+
+        accuracy = np.sum(y == t) / float(x.shape[0])
+        return accuracy
+    
+    def numerical_gradient(self, x, t):
+        """기울기를 구한다(수치 미분).
+        
+        Parameters
+        ----------
+        x : 입력 데이터
+        t : 정답 레이블
+        
+        Returns
+        -------
+        각 층의 기울기를 담은 딕셔너리(dictionary) 변수
+            grads['W1']、grads['W2']、... 각 층의 가중치
+            grads['b1']、grads['b2']、... 각 층의 편향
+        """
+        loss_W = lambda W: self.loss(x, t)
+
+        grads = {}
+        for idx in range(1, self.hidden_layer_num+2):
+            grads['W' + str(idx)] = numerical_gradient(loss_W, self.params['W' + str(idx)])
+            grads['b' + str(idx)] = numerical_gradient(loss_W, self.params['b' + str(idx)])
+
+        return grads
+
+    def gradient(self, x, t):
+        """기울기를 구한다(오차역전파법).
+        Parameters
+        ----------
+        x : 입력 데이터
+        t : 정답 레이블
+        
+        Returns
+        -------
+        각 층의 기울기를 담은 딕셔너리(dictionary) 변수
+            grads['W1']、grads['W2']、... 각 층의 가중치
+            grads['b1']、grads['b2']、... 각 층의 편향
+        """
+        # forward
+        self.loss(x, t)
+
+        # backward
+        dout = 1
+        dout = self.last_layer.backward(dout)
+
+        layers = list(self.layers.values())
+        layers.reverse()
+        for layer in layers:
+            dout = layer.backward(dout)
+
+        # 결과 저장
+        grads = {}
+        for idx in range(1, self.hidden_layer_num+2):
+            grads['W' + str(idx)] = self.layers['Affine' + str(idx)].dW + self.weight_decay_lambda * self.layers['Affine' + str(idx)].W
+            grads['b' + str(idx)] = self.layers['Affine' + str(idx)].db
+
+        return grads
+
+
 def smooth_curve(x):
     """손실 함수의 그래프를 매끄럽게 하기 위해 사용
     
