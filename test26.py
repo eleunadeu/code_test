@@ -165,7 +165,7 @@ def keras_train_3():
     model = build_model(keras.layers.Dropout(0.3))
     model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics='accuracy')
     history = model.fit(train_scaled, train_target, epochs=8, validation_data=(val_scaled, val_target))
-    model.save_weigths('model_weights.h5')
+    model.save_weights('model_weights.h5')
     model.save('model_whole.h5')
     model = build_model(keras.layers.Dropout(0.3))
     model.load_weights('model_weights.h5')
